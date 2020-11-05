@@ -69,6 +69,7 @@ pub use frame_support::{
 use frontier_rpc_primitives::TransactionStatus;
 use pallet_evm::{
 	Account as EVMAccount, EnsureAddressTruncated, FeeCalculator, HashedAddressMapping,
+	Runner
 };
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -248,6 +249,7 @@ impl pallet_evm::Trait for Runtime {
 	type Currency = Balances;
 	type Event = Event;
 	type Precompiles = precompiles::MoonbeamPrecompiles;
+	type Runner = pallet_evm::runner::stack::Runner<Self>;
 	type ChainId = ChainId;
 }
 
@@ -434,40 +436,40 @@ impl_runtime_apis! {
 
 		fn call(
 			from: H160,
+			to: H160,
 			data: Vec<u8>,
 			value: U256,
 			gas_limit: U256,
 			gas_price: Option<U256>,
 			nonce: Option<U256>,
-			action: pallet_ethereum::TransactionAction,
-		) -> Result<(Vec<u8>, U256), sp_runtime::DispatchError> {
-			match action {
-				pallet_ethereum::TransactionAction::Call(to) =>
-					EVM::execute_call(
-						from,
-						to,
-						data,
-						value,
-						gas_limit.low_u32(),
-						gas_price.unwrap_or(U256::from(0)),
-						nonce,
-						false,
-					)
-					.map(|(_, ret, gas, _)| (ret, gas))
-					.map_err(|err| err.into()),
-				pallet_ethereum::TransactionAction::Create =>
-					EVM::execute_create(
-						from,
-						data,
-						value,
-						gas_limit.low_u32(),
-						gas_price.unwrap_or(U256::from(0)),
-						nonce,
-						false,
-					)
-					.map(|(_, _, gas, _)| (vec![], gas))
-					.map_err(|err| err.into()),
-			}
+		) -> Result<pallet_evm::CallInfo, sp_runtime::DispatchError> {
+			<Runtime as pallet_evm::Trait>::Runner::call(
+				from,
+				to,
+				data,
+				value,
+				gas_limit.low_u32(),
+				gas_price,
+				nonce,
+			).map_err(|err| err.into())
+		}
+
+		fn create(
+			from: H160,
+			data: Vec<u8>,
+			value: U256,
+			gas_limit: U256,
+			gas_price: Option<U256>,
+			nonce: Option<U256>,
+		) -> Result<pallet_evm::CreateInfo, sp_runtime::DispatchError> {
+			<Runtime as pallet_evm::Trait>::Runner::create(
+				from,
+				data,
+				value,
+				gas_limit.low_u32(),
+				gas_price,
+				nonce,
+			).map_err(|err| err.into())
 		}
 
 		fn current_transaction_statuses() -> Option<Vec<TransactionStatus>> {
