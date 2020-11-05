@@ -117,6 +117,7 @@ pub fn create_full<C, P, BE, A>(
 			graph_pool.clone(),
 			pool.clone(),
 			moonbeam_runtime::TransactionConverter,
+			network.clone(),
 			is_authority,
 			eth_block_limit,
 			eth_log_limit,
