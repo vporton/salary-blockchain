@@ -31,6 +31,17 @@ where
 //   Account ID:       0x01e552298e47454041ea31273b4b630c64c104e4514aa3643490b8aaca9cf8ed
 //   SS58 Address:     5C7C2Z5sWbytvHpuLTvzKunnnRwQxft1jiqrLD5rhucQ5S9X
 
+// $ subkey inspect --scheme ecdsa "bottom drive obey lake curtain smoke basket hold race lonely fit walk"//Alice
+// Secret Key URI `bottom drive obey lake curtain smoke basket hold race lonely fit walk//Alice` is account:
+//   Secret seed:      0xcb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854
+//   Public key (hex): 0x020a1091341fe5664bfa1782d5e04779689068c916b04cb365ec3153755684d9a1
+//   Account ID:       0x01e552298e47454041ea31273b4b630c64c104e4514aa3643490b8aaca9cf8ed
+//   SS58 Address:     5C7C2Z5sWbytvHpuLTvzKunnnRwQxft1jiqrLD5rhucQ5S9X
+
+// When I import the account above into Apps by the private key, I get the same expected Alice Address
+// But when I add an account to apps via the private key, I get the same expected account that matches the Rust code.
+// But when I do it via mnemonic, I get a different account
+
 #[cfg(test)]
 mod tests {
 	use super::*;
