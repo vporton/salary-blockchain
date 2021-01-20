@@ -29,6 +29,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "account-helpers"
+version = "0.1.0"
+dependencies = [
+ "account",
+ "moonbeam-runtime",
+ "sp-core",
+ "sp-runtime",
+]
+
+[[package]]
 name = "addr2line"
 version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,0 +1,13 @@
+[package]
+name = "account-helpers"
+version = "0.1.0"
+authors = ["Joshy Orndorff <admin@joshyorndorff.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+moonbeam-runtime = { path = "../../runtime" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master" }
+account = { path = "../../runtime/account" }
