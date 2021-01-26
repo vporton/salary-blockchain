@@ -306,6 +306,7 @@ pub struct EthereumFindAuthor<F>(PhantomData<F>);
 
 parameter_types! {
 	pub const DefaultStateRoot: H256 = H256::zero();
+	pub BlockGasLimit: U256 = U256::from(u32::max_value());
 }
 
 impl pallet_ethereum::Config for Runtime {
@@ -315,6 +316,7 @@ impl pallet_ethereum::Config for Runtime {
 	#[cfg(feature = "standalone")]
 	type FindAuthor = EthereumFindAuthor<Aura>;
 	type StateRoot = DefaultStateRoot;
+	type BlockGasLimit = BlockGasLimit;
 }
 
 // 18 decimals
