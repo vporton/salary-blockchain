@@ -18,7 +18,7 @@
 
 use crate::mock_timestamp::MockTimestampInherentDataProvider;
 use fc_consensus::FrontierBlockImport;
-use fc_rpc_core::types::PendingTransactions;
+use fc_rpc_core::types::{FilterPool, PendingTransactions};
 use moonbeam_runtime::{self, opaque::Block, RuntimeApi};
 use parity_scale_codec::Encode;
 use sc_client_api::{BlockchainEvents, ExecutorProvider, RemoteBackend};
@@ -31,7 +31,7 @@ use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 use sp_core::H160;
 use sp_inherents::InherentDataProviders;
 use std::{
-	collections::HashMap,
+	collections::{BTreeMap, HashMap},
 	sync::{Arc, Mutex},
 	time::Duration,
 };
@@ -102,7 +102,7 @@ pub fn new_partial(
 		FullSelectChain,
 		sp_consensus::import_queue::BasicQueue<Block, sp_api::TransactionFor<FullClient, Block>>,
 		sc_transaction_pool::FullPool<Block, FullClient>,
-		(ConsensusResult, PendingTransactions),
+		(ConsensusResult, PendingTransactions, Option<FilterPool>),
 	>,
 	ServiceError,
 > {
@@ -122,6 +122,8 @@ pub fn new_partial(
 	);
 
 	let pending_transactions: PendingTransactions = Some(Arc::new(Mutex::new(HashMap::new())));
+
+	let filter_pool: Option<FilterPool> = Some(Arc::new(Mutex::new(BTreeMap::new())));
 
 	if manual_seal {
 		let frontier_block_import = FrontierBlockImport::new(client.clone(), client.clone(), true);
@@ -144,6 +146,7 @@ pub fn new_partial(
 			other: (
 				ConsensusResult::ManualSeal(frontier_block_import),
 				pending_transactions,
+				filter_pool,
 			),
 		});
 	}
@@ -185,6 +188,7 @@ pub fn new_partial(
 		other: (
 			ConsensusResult::Aura(aura_block_import, grandpa_link),
 			pending_transactions,
+			filter_pool,
 		),
 	})
 }
@@ -204,7 +208,7 @@ pub fn new_full(
 		select_chain,
 		transaction_pool,
 		inherent_data_providers,
-		other: (consensus_result, pending_transactions),
+		other: (consensus_result, pending_transactions, filter_pool),
 	} = new_partial(&config, manual_seal, author_id)?;
 
 	let (network, network_status_sinks, system_rpc_tx, network_starter) = match consensus_result {
@@ -260,6 +264,7 @@ pub fn new_full(
 		let pool = transaction_pool.clone();
 		let network = network.clone();
 		let pending = pending_transactions.clone();
+		let filter_pool = filter_pool.clone();
 		Box::new(move |deny_unsafe, _| {
 			let deps = moonbeam_rpc::FullDeps {
 				client: client.clone(),
@@ -269,6 +274,7 @@ pub fn new_full(
 				is_authority,
 				network: network.clone(),
 				pending_transactions: pending.clone(),
+				filter_pool: filter_pool.clone(),
 				command_sink: Some(command_sink.clone()),
 			};
 			moonbeam_rpc::create_full(deps, subscription_task_executor.clone())
@@ -290,6 +296,30 @@ pub fn new_full(
 		system_rpc_tx,
 		config,
 	})?;
+
+	// Spawn Frontier EthFilterApi maintenance task.
+	if filter_pool.is_some() {
+		use futures::StreamExt;
+		// Each filter is allowed to stay in the pool for 100 blocks.
+		const FILTER_RETAIN_THRESHOLD: u64 = 100;
+		task_manager.spawn_essential_handle().spawn(
+			"frontier-filter-pool",
+			client
+				.import_notification_stream()
+				.for_each(move |notification| {
+					if let Ok(locked) = &mut filter_pool.clone().unwrap().lock() {
+						let imported_number: u64 = notification.header.number as u64;
+						for (k, v) in locked.clone().iter() {
+							let lifespan_limit = v.at_block + FILTER_RETAIN_THRESHOLD;
+							if lifespan_limit <= imported_number {
+								locked.remove(&k);
+							}
+						}
+					}
+					futures::future::ready(())
+				}),
+		);
+	}
 
 	// Spawn Frontier pending transactions maintenance task (as essential, otherwise we leak).
 	if pending_transactions.is_some() {
