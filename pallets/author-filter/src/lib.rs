@@ -41,7 +41,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_core::H256;
 	use sp_runtime::Percent;
-
+	use sp_std::if_std;
 	/// The Author Filter pallet
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
@@ -72,8 +72,14 @@ pub mod pallet {
 			let mut eligible = Vec::with_capacity(num_eligible);
 
 			// Grab the relay parent height as a temporary source of relay-based entropy
-			let validation_data = cumulus_parachain_upgrade::Module::<T>::validation_data()
-				.expect("validation data was set in parachain system inherent");
+			let maybe_validation_data = cumulus_parachain_upgrade::Module::<T>::validation_data();
+
+			if_std!{
+				println!("In pallet author filter.");
+				println!("{:?}", maybe_validation_data);
+			}
+
+			let validation_data = maybe_validation_data.unwrap();
 			let relay_height = validation_data.persisted.block_number;
 
 			for i in 0..num_eligible {

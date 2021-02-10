@@ -20,6 +20,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use sp_std::if_std;
 use frame_support::{
 	decl_error, decl_module, decl_storage, ensure,
 	traits::FindAuthor,
@@ -92,7 +93,13 @@ decl_module! {
 		fn set_author(origin, author: T::AccountId) {
 			ensure_none(origin)?;
 			ensure!(<Author<T>>::get().is_none(), Error::<T>::AuthorAlreadySet);
+			if_std!{
+				println!("Setting author inherent, about to call can_author");
+			}
 			ensure!(T::CanAuthor::can_author(&author), Error::<T>::CannotBeAuthor);
+			if_std!{
+				println!("returned fro mcan_author. apparently we could author");
+			}
 
 			// Update storage
 			Author::<T>::put(&author);
