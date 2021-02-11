@@ -79,8 +79,8 @@ pub mod pallet {
 				println!("{:?}", maybe_validation_data);
 			}
 
-			let validation_data = maybe_validation_data.unwrap();
-			let relay_height = validation_data.persisted.block_number;
+			// let validation_data = maybe_validation_data.unwrap();
+			let relay_height = 0;//validation_data.persisted.block_number;
 
 			for i in 0..num_eligible {
 				// A context identifier for grabbing the randomness. Consists of three parts
