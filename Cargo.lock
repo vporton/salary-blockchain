@@ -1081,8 +1081,8 @@ version = "0.1.0"
 source = "git+https://github.com/paritytech/cumulus#6438d328b8ac09f43d19df65a2cf8e31a524d78f"
 dependencies = [
  "cumulus-network",
- "cumulus-primitives",
- "cumulus-runtime",
+ "cumulus-primitives 0.1.0 (git+https://github.com/paritytech/cumulus)",
+ "cumulus-runtime 0.1.0 (git+https://github.com/paritytech/cumulus)",
  "futures 0.3.12",
  "log",
  "parity-scale-codec",
@@ -1131,7 +1131,7 @@ name = "cumulus-network"
 version = "0.1.0"
 source = "git+https://github.com/paritytech/cumulus#6438d328b8ac09f43d19df65a2cf8e31a524d78f"
 dependencies = [
- "cumulus-primitives",
+ "cumulus-primitives 0.1.0 (git+https://github.com/paritytech/cumulus)",
  "derive_more 0.99.11",
  "futures 0.3.12",
  "futures-timer 3.0.2",
@@ -1156,10 +1156,9 @@ dependencies = [
 [[package]]
 name = "cumulus-parachain-system"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/cumulus#6438d328b8ac09f43d19df65a2cf8e31a524d78f"
 dependencies = [
- "cumulus-primitives",
- "cumulus-runtime",
+ "cumulus-primitives 0.1.0",
+ "cumulus-runtime 0.1.0",
  "frame-support",
  "frame-system",
  "hash-db",
@@ -1175,6 +1174,23 @@ dependencies = [
  "sp-std",
  "sp-trie",
  "sp-version",
+]
+
+[[package]]
+name = "cumulus-primitives"
+version = "0.1.0"
+dependencies = [
+ "impl-trait-for-tuples 0.1.3",
+ "parity-scale-codec",
+ "polkadot-core-primitives",
+ "polkadot-parachain",
+ "polkadot-primitives",
+ "sc-chain-spec",
+ "sp-core",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-std",
+ "sp-trie",
 ]
 
 [[package]]
@@ -1198,9 +1214,29 @@ dependencies = [
 [[package]]
 name = "cumulus-runtime"
 version = "0.1.0"
+dependencies = [
+ "cumulus-primitives 0.1.0",
+ "frame-executive",
+ "hash-db",
+ "memory-db",
+ "parity-scale-codec",
+ "polkadot-parachain",
+ "sp-core",
+ "sp-externalities",
+ "sp-io",
+ "sp-runtime",
+ "sp-state-machine",
+ "sp-std",
+ "sp-trie",
+ "trie-db",
+]
+
+[[package]]
+name = "cumulus-runtime"
+version = "0.1.0"
 source = "git+https://github.com/paritytech/cumulus#6438d328b8ac09f43d19df65a2cf8e31a524d78f"
 dependencies = [
- "cumulus-primitives",
+ "cumulus-primitives 0.1.0 (git+https://github.com/paritytech/cumulus)",
  "frame-executive",
  "hash-db",
  "memory-db",
@@ -1223,7 +1259,7 @@ source = "git+https://github.com/paritytech/cumulus#6438d328b8ac09f43d19df65a2cf
 dependencies = [
  "cumulus-collator",
  "cumulus-consensus",
- "cumulus-primitives",
+ "cumulus-primitives 0.1.0 (git+https://github.com/paritytech/cumulus)",
  "futures 0.3.12",
  "polkadot-overseer",
  "polkadot-primitives",
@@ -1245,7 +1281,7 @@ name = "cumulus-test-relay-sproof-builder"
 version = "0.1.0"
 source = "git+https://github.com/paritytech/cumulus#6438d328b8ac09f43d19df65a2cf8e31a524d78f"
 dependencies = [
- "cumulus-primitives",
+ "cumulus-primitives 0.1.0 (git+https://github.com/paritytech/cumulus)",
  "parity-scale-codec",
  "polkadot-primitives",
  "sp-runtime",
@@ -3986,7 +4022,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "moonbase-alphanet"
+name = "moonbeam"
 version = "0.1.0"
 dependencies = [
  "ansi_term 0.12.1",
@@ -3996,7 +4032,7 @@ dependencies = [
  "cumulus-collator",
  "cumulus-consensus",
  "cumulus-network",
- "cumulus-primitives",
+ "cumulus-primitives 0.1.0 (git+https://github.com/paritytech/cumulus)",
  "cumulus-service",
  "cumulus-test-relay-sproof-builder",
  "derive_more 0.15.0",
@@ -4121,8 +4157,8 @@ dependencies = [
  "account",
  "author-inherent",
  "cumulus-parachain-system",
- "cumulus-primitives",
- "cumulus-runtime",
+ "cumulus-primitives 0.1.0 (git+https://github.com/paritytech/cumulus)",
+ "cumulus-runtime 0.1.0 (git+https://github.com/paritytech/cumulus)",
  "fp-rpc",
  "frame-executive",
  "frame-support",
@@ -4547,6 +4583,7 @@ dependencies = [
  "parity-scale-codec",
  "sp-core",
  "sp-runtime",
+ "sp-std",
  "stake",
 ]
 
@@ -5167,7 +5204,7 @@ dependencies = [
 name = "parachain-info"
 version = "0.1.0"
 dependencies = [
- "cumulus-primitives",
+ "cumulus-primitives 0.1.0 (git+https://github.com/paritytech/cumulus)",
  "frame-support",
  "frame-system",
  "parity-scale-codec",

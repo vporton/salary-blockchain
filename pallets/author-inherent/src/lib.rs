@@ -32,6 +32,7 @@ use sp_inherents::ProvideInherentData;
 use sp_inherents::{InherentData, InherentIdentifier, IsFatalError, ProvideInherent};
 use sp_runtime::{ConsensusEngineId, DigestItem, RuntimeString};
 use sp_std::vec::Vec;
+use sp_std::if_std;
 
 /// The given account ID is the author of the current block.
 pub trait EventHandler<Author> {
@@ -92,7 +93,13 @@ decl_module! {
 		fn set_author(origin, author: T::AccountId) {
 			ensure_none(origin)?;
 			ensure!(<Author<T>>::get().is_none(), Error::<T>::AuthorAlreadySet);
+			if_std!{
+				println!("In author inherent's dispatchable. Author set in block is {:?}. About to call can_author impl", &author);
+			}
 			ensure!(T::CanAuthor::can_author(&author), Error::<T>::CannotBeAuthor);
+			if_std!{
+				println!("Back in author inherent's dispatchable after checking can_author. If you made it this far, then the author set i nthe block can indeed author.");
+			}
 
 			// Update storage
 			Author::<T>::put(&author);

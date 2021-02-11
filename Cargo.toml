@@ -6,3 +6,7 @@ members = [
 
 [profile.release]
 panic = 'unwind'
+
+# Tell it to use my local cumulus branch
+[patch.'https://github.com/paritytech/cumulus']
+cumulus-parachain-system = { path = "../cumulus/parachain-system" }
