@@ -184,16 +184,17 @@ pub fn run() -> Result<()> {
 			})
 		}
 		Some(Subcommand::CheckBlock(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			runner.async_run(|config| {
-				let PartialComponents {
-					client,
-					task_manager,
-					import_queue,
-					..
-				} = crate::service::new_partial(&config, None, false)?;
-				Ok((cmd.run(client, import_queue), task_manager))
-			})
+			unimplemented!()
+			// let runner = cli.create_runner(cmd)?;
+			// runner.async_run(|config| {
+			// 	let PartialComponents {
+			// 		client,
+			// 		task_manager,
+			// 		import_queue,
+			// 		..
+			// 	} = crate::service::new_partial(&config, None, false)?;
+			// 	Ok((cmd.run(client, import_queue), task_manager))
+			// })
 		}
 		Some(Subcommand::ExportBlocks(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
@@ -218,16 +219,17 @@ pub fn run() -> Result<()> {
 			})
 		}
 		Some(Subcommand::ImportBlocks(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			runner.async_run(|config| {
-				let PartialComponents {
-					client,
-					task_manager,
-					import_queue,
-					..
-				} = crate::service::new_partial(&config, None, false)?;
-				Ok((cmd.run(client, import_queue), task_manager))
-			})
+			unimplemented!()
+			// let runner = cli.create_runner(cmd)?;
+			// runner.async_run(|config| {
+			// 	let PartialComponents {
+			// 		client,
+			// 		task_manager,
+			// 		import_queue,
+			// 		..
+			// 	} = crate::service::new_partial(&config, None, false)?;
+			// 	Ok((cmd.run(client, import_queue), task_manager))
+			// })
 		}
 		Some(Subcommand::PurgeChain(cmd)) => {
 			let runner = cli.create_runner(cmd)?;

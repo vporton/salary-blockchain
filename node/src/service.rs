@@ -98,7 +98,7 @@ pub fn new_partial(
 		FullClient,
 		FullBackend,
 		(),
-		sp_consensus::import_queue::BasicQueue<Block, PrefixedMemoryDB<BlakeTwo256>>,
+		(),
 		sc_transaction_pool::FullPool<Block, FullClient>,
 		(
 			FrontierBlockImport<Block, Arc<FullClient>, FullClient>,
@@ -163,18 +163,18 @@ pub fn new_partial(
 	// We build the cumulus import queue here regardless of whether we're running a parachain or
 	// the dev service. Either one will be fine when only partial components are necessary.
 	// When running the dev service, an alternate import queue will be built below.
-	let import_queue = cumulus_client_consensus_relay_chain::import_queue(
-		client.clone(),
-		frontier_block_import.clone(),
-		inherent_data_providers.clone(),
-		&task_manager.spawn_essential_handle(),
-		config.prometheus_registry(),
-	)?;
+	// let import_queue = cumulus_client_consensus_relay_chain::import_queue(
+	// 	client.clone(),
+	// 	frontier_block_import.clone(),
+	// 	inherent_data_providers.clone(),
+	// 	&task_manager.spawn_essential_handle(),
+	// 	config.prometheus_registry(),
+	// )?;
 
 	Ok(PartialComponents {
 		backend,
 		client,
-		import_queue,
+		import_queue: (),
 		keystore_container,
 		task_manager,
 		transaction_pool,
@@ -210,193 +210,194 @@ where
 		+ Send
 		+ 'static,
 {
-	if matches!(parachain_config.role, Role::Light) {
-		return Err("Light client not supported!".into());
-	}
-
-	let parachain_config = prepare_node_config(parachain_config);
-
-	let params = new_partial(&parachain_config, author_id, false)?;
-	let (
-		block_import,
-		pending_transactions,
-		filter_pool,
-		mut telemetry,
-		telemetry_worker_handle,
-		frontier_backend,
-	) = params.other;
-
-	let polkadot_full_node =
-		cumulus_client_service::build_polkadot_full_node(
-			polkadot_config,
-			collator_key.public(),
-			telemetry_worker_handle,
-		)
-		.map_err(|e| match e {
-			polkadot_service::Error::Sub(x) => x,
-			s => format!("{}", s).into(),
-		})?;
-
-	let client = params.client.clone();
-	let backend = params.backend.clone();
-	let block_announce_validator = build_block_announce_validator(
-		polkadot_full_node.client.clone(),
-		id,
-		Box::new(polkadot_full_node.network.clone()),
-		polkadot_full_node.backend.clone(),
-	);
-
-	let prometheus_registry = parachain_config.prometheus_registry().cloned();
-	let transaction_pool = params.transaction_pool.clone();
-	let mut task_manager = params.task_manager;
-	let import_queue = params.import_queue;
-	let (network, network_status_sinks, system_rpc_tx, start_network) =
-		sc_service::build_network(sc_service::BuildNetworkParams {
-			config: &parachain_config,
-			client: client.clone(),
-			transaction_pool: transaction_pool.clone(),
-			spawn_handle: task_manager.spawn_handle(),
-			import_queue,
-			on_demand: None,
-			block_announce_validator_builder: Some(Box::new(|_| block_announce_validator)),
-		})?;
-
-	let subscription_task_executor =
-		sc_rpc::SubscriptionTaskExecutor::new(task_manager.spawn_handle());
-
-	let rpc_extensions_builder = {
-		let client = client.clone();
-		let pool = transaction_pool.clone();
-		let network = network.clone();
-		let pending = pending_transactions.clone();
-		let filter_pool = filter_pool.clone();
-		let frontier_backend = frontier_backend.clone();
-
-		Box::new(move |deny_unsafe, _| {
-			let deps = crate::rpc::FullDeps {
-				client: client.clone(),
-				pool: pool.clone(),
-				graph: pool.pool().clone(),
-				deny_unsafe,
-				is_authority: collator,
-				network: network.clone(),
-				pending_transactions: pending.clone(),
-				filter_pool: filter_pool.clone(),
-				command_sink: None,
-				backend: frontier_backend.clone(),
-			};
-
-			crate::rpc::create_full(deps, subscription_task_executor.clone())
-		})
-	};
-
-	task_manager.spawn_essential_handle().spawn(
-		"frontier-mapping-sync-worker",
-		MappingSyncWorker::new(
-			client.import_notification_stream(),
-			Duration::new(6, 0),
-			client.clone(),
-			backend.clone(),
-			frontier_backend.clone(),
-		).for_each(|()| futures::future::ready(()))
-	);
-
-	sc_service::spawn_tasks(sc_service::SpawnTasksParams {
-		on_demand: None,
-		remote_blockchain: None,
-		rpc_extensions_builder,
-		client: client.clone(),
-		transaction_pool: transaction_pool.clone(),
-		task_manager: &mut task_manager,
-		config: parachain_config,
-		keystore: params.keystore_container.sync_keystore(),
-		backend: backend.clone(),
-		network: network.clone(),
-		network_status_sinks,
-		system_rpc_tx,
-		telemetry: telemetry.as_mut(),
-	})?;
-
-	// Spawn Frontier EthFilterApi maintenance task.
-	if let Some(filter_pool) = filter_pool {
-		// Each filter is allowed to stay in the pool for 100 blocks.
-		const FILTER_RETAIN_THRESHOLD: u64 = 100;
-		task_manager.spawn_essential_handle().spawn(
-			"frontier-filter-pool",
-			EthTask::filter_pool_task(
-				Arc::clone(&client),
-				filter_pool,
-				FILTER_RETAIN_THRESHOLD,
-			)
-		);
-	}
-
-	// Spawn Frontier pending transactions maintenance task (as essential, otherwise we leak).
-	if let Some(pending_transactions) = pending_transactions {
-		const TRANSACTION_RETAIN_THRESHOLD: u64 = 5;
-		task_manager.spawn_essential_handle().spawn(
-			"frontier-pending-transactions",
-			EthTask::pending_transaction_task(
-				Arc::clone(&client),
-				pending_transactions,
-				TRANSACTION_RETAIN_THRESHOLD,
-			)
-		);
-	}
-
-	let announce_block = {
-		let network = network.clone();
-		Arc::new(move |hash, data| network.announce_block(hash, data))
-	};
-
-	if collator {
-		let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
-			task_manager.spawn_handle(),
-			client.clone(),
-			transaction_pool,
-			prometheus_registry.as_ref(),
-			telemetry.as_ref().map(|x| x.handle()),
-		);
-		let spawner = task_manager.spawn_handle();
-
-		let parachain_consensus = build_relay_chain_consensus(BuildRelayChainConsensusParams {
-			para_id: id,
-			proposer_factory,
-			inherent_data_providers: params.inherent_data_providers,
-			block_import,
-			relay_chain_client: polkadot_full_node.client.clone(),
-			relay_chain_backend: polkadot_full_node.backend.clone(),
-		});
-
-		let params = StartCollatorParams {
-			para_id: id,
-			block_status: client.clone(),
-			announce_block,
-			client: client.clone(),
-			task_manager: &mut task_manager,
-			collator_key,
-			spawner,
-			backend,
-			relay_chain_full_node: polkadot_full_node,
-			parachain_consensus,
-		};
-
-		start_collator(params).await?;
-	} else {
-		let params = StartFullNodeParams {
-			client: client.clone(),
-			announce_block,
-			task_manager: &mut task_manager,
-			para_id: id,
-			polkadot_full_node,
-		};
-
-		start_full_node(params)?;
-	}
-
-	start_network.start_network();
-
-	Ok((task_manager, client))
+	unimplemented!()
+	// if matches!(parachain_config.role, Role::Light) {
+	// 	return Err("Light client not supported!".into());
+	// }
+	//
+	// let parachain_config = prepare_node_config(parachain_config);
+	//
+	// let params = new_partial(&parachain_config, author_id, false)?;
+	// let (
+	// 	block_import,
+	// 	pending_transactions,
+	// 	filter_pool,
+	// 	mut telemetry,
+	// 	telemetry_worker_handle,
+	// 	frontier_backend,
+	// ) = params.other;
+	//
+	// let polkadot_full_node =
+	// 	cumulus_client_service::build_polkadot_full_node(
+	// 		polkadot_config,
+	// 		collator_key.public(),
+	// 		telemetry_worker_handle,
+	// 	)
+	// 	.map_err(|e| match e {
+	// 		polkadot_service::Error::Sub(x) => x,
+	// 		s => format!("{}", s).into(),
+	// 	})?;
+	//
+	// let client = params.client.clone();
+	// let backend = params.backend.clone();
+	// let block_announce_validator = build_block_announce_validator(
+	// 	polkadot_full_node.client.clone(),
+	// 	id,
+	// 	Box::new(polkadot_full_node.network.clone()),
+	// 	polkadot_full_node.backend.clone(),
+	// );
+	//
+	// let prometheus_registry = parachain_config.prometheus_registry().cloned();
+	// let transaction_pool = params.transaction_pool.clone();
+	// let mut task_manager = params.task_manager;
+	// let import_queue = params.import_queue;
+	// let (network, network_status_sinks, system_rpc_tx, start_network) =
+	// 	sc_service::build_network(sc_service::BuildNetworkParams {
+	// 		config: &parachain_config,
+	// 		client: client.clone(),
+	// 		transaction_pool: transaction_pool.clone(),
+	// 		spawn_handle: task_manager.spawn_handle(),
+	// 		import_queue,
+	// 		on_demand: None,
+	// 		block_announce_validator_builder: Some(Box::new(|_| block_announce_validator)),
+	// 	})?;
+	//
+	// let subscription_task_executor =
+	// 	sc_rpc::SubscriptionTaskExecutor::new(task_manager.spawn_handle());
+	//
+	// let rpc_extensions_builder = {
+	// 	let client = client.clone();
+	// 	let pool = transaction_pool.clone();
+	// 	let network = network.clone();
+	// 	let pending = pending_transactions.clone();
+	// 	let filter_pool = filter_pool.clone();
+	// 	let frontier_backend = frontier_backend.clone();
+	//
+	// 	Box::new(move |deny_unsafe, _| {
+	// 		let deps = crate::rpc::FullDeps {
+	// 			client: client.clone(),
+	// 			pool: pool.clone(),
+	// 			graph: pool.pool().clone(),
+	// 			deny_unsafe,
+	// 			is_authority: collator,
+	// 			network: network.clone(),
+	// 			pending_transactions: pending.clone(),
+	// 			filter_pool: filter_pool.clone(),
+	// 			command_sink: None,
+	// 			backend: frontier_backend.clone(),
+	// 		};
+	//
+	// 		crate::rpc::create_full(deps, subscription_task_executor.clone())
+	// 	})
+	// };
+	//
+	// task_manager.spawn_essential_handle().spawn(
+	// 	"frontier-mapping-sync-worker",
+	// 	MappingSyncWorker::new(
+	// 		client.import_notification_stream(),
+	// 		Duration::new(6, 0),
+	// 		client.clone(),
+	// 		backend.clone(),
+	// 		frontier_backend.clone(),
+	// 	).for_each(|()| futures::future::ready(()))
+	// );
+	//
+	// sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+	// 	on_demand: None,
+	// 	remote_blockchain: None,
+	// 	rpc_extensions_builder,
+	// 	client: client.clone(),
+	// 	transaction_pool: transaction_pool.clone(),
+	// 	task_manager: &mut task_manager,
+	// 	config: parachain_config,
+	// 	keystore: params.keystore_container.sync_keystore(),
+	// 	backend: backend.clone(),
+	// 	network: network.clone(),
+	// 	network_status_sinks,
+	// 	system_rpc_tx,
+	// 	telemetry: telemetry.as_mut(),
+	// })?;
+	//
+	// // Spawn Frontier EthFilterApi maintenance task.
+	// if let Some(filter_pool) = filter_pool {
+	// 	// Each filter is allowed to stay in the pool for 100 blocks.
+	// 	const FILTER_RETAIN_THRESHOLD: u64 = 100;
+	// 	task_manager.spawn_essential_handle().spawn(
+	// 		"frontier-filter-pool",
+	// 		EthTask::filter_pool_task(
+	// 			Arc::clone(&client),
+	// 			filter_pool,
+	// 			FILTER_RETAIN_THRESHOLD,
+	// 		)
+	// 	);
+	// }
+	//
+	// // Spawn Frontier pending transactions maintenance task (as essential, otherwise we leak).
+	// if let Some(pending_transactions) = pending_transactions {
+	// 	const TRANSACTION_RETAIN_THRESHOLD: u64 = 5;
+	// 	task_manager.spawn_essential_handle().spawn(
+	// 		"frontier-pending-transactions",
+	// 		EthTask::pending_transaction_task(
+	// 			Arc::clone(&client),
+	// 			pending_transactions,
+	// 			TRANSACTION_RETAIN_THRESHOLD,
+	// 		)
+	// 	);
+	// }
+	//
+	// let announce_block = {
+	// 	let network = network.clone();
+	// 	Arc::new(move |hash, data| network.announce_block(hash, data))
+	// };
+	//
+	// if collator {
+	// 	let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
+	// 		task_manager.spawn_handle(),
+	// 		client.clone(),
+	// 		transaction_pool,
+	// 		prometheus_registry.as_ref(),
+	// 		telemetry.as_ref().map(|x| x.handle()),
+	// 	);
+	// 	let spawner = task_manager.spawn_handle();
+	//
+	// 	let parachain_consensus = build_relay_chain_consensus(BuildRelayChainConsensusParams {
+	// 		para_id: id,
+	// 		proposer_factory,
+	// 		inherent_data_providers: params.inherent_data_providers,
+	// 		block_import,
+	// 		relay_chain_client: polkadot_full_node.client.clone(),
+	// 		relay_chain_backend: polkadot_full_node.backend.clone(),
+	// 	});
+	//
+	// 	let params = StartCollatorParams {
+	// 		para_id: id,
+	// 		block_status: client.clone(),
+	// 		announce_block,
+	// 		client: client.clone(),
+	// 		task_manager: &mut task_manager,
+	// 		collator_key,
+	// 		spawner,
+	// 		backend,
+	// 		relay_chain_full_node: polkadot_full_node,
+	// 		parachain_consensus,
+	// 	};
+	//
+	// 	start_collator(params).await?;
+	// } else {
+	// 	let params = StartFullNodeParams {
+	// 		client: client.clone(),
+	// 		announce_block,
+	// 		task_manager: &mut task_manager,
+	// 		para_id: id,
+	// 		polkadot_full_node,
+	// 	};
+	//
+	// 	start_full_node(params)?;
+	// }
+	//
+	// start_network.start_network();
+	//
+	// Ok((task_manager, client))
 }
 
 /// Start a normal parachain node.
