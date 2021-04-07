@@ -93,7 +93,11 @@ async function processBlock(web3: Web3, n: number): Promise<number> {
   // Return the number of transactions processed in this block.
   return block.transactions.length;
 }
-
+/**
+ * Args:
+ *  --mode=debug|trace [Optional] [Default=debug]
+ *  --url={RPC_ENDPOINT} [Required]
+ */
 (async () => {
 
   // Required --url argument.
