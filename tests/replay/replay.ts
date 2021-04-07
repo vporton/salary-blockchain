@@ -2,14 +2,14 @@ import Web3 from "web3";
 import { JsonRpcResponse } from "web3-core-helpers";
 
 const fs = require("fs");
-const URL = "http://localhost:9990";
-const ERROR_FILE = "db/error.json";
-const PROGRESS_FILE = "db/progress.json";
+const DB_PATH = "db";
+let mode;
+let error_file, progress_file;
 
 function lastProcessedBlock(): any {
   try {
-    if (fs.existsSync(PROGRESS_FILE)) {
-      let p = JSON.parse(fs.readFileSync(PROGRESS_FILE));
+    if (fs.existsSync(progress_file)) {
+      let p = JSON.parse(fs.readFileSync(progress_file));
       if (p.hasOwnProperty("lastProcessedBlock")) {
         return p;
       } else {
@@ -20,7 +20,7 @@ function lastProcessedBlock(): any {
         lastProcessedBlock: 0,
         ethTransactionsProcessed: 0,
       };
-      fs.writeFileSync(PROGRESS_FILE, JSON.stringify(p));
+      fs.writeFileSync(progress_file, JSON.stringify(p));
       return p;
     }
   } catch (err) {
@@ -30,9 +30,9 @@ function lastProcessedBlock(): any {
 
 function createErrorFile() {
   try {
-    if (!fs.existsSync(ERROR_FILE)) {
+    if (!fs.existsSync(error_file)) {
       fs.writeFileSync(
-        ERROR_FILE,
+        error_file,
         JSON.stringify({
           errors: [],
         })
@@ -60,7 +60,7 @@ async function processBlock(web3: Web3, n: number): Promise<number> {
         (error: Error | null, result?: JsonRpcResponse) => {
           // We are only interested in errors. Error in HTTP request.
           if (error) {
-            let e = JSON.parse(fs.readFileSync(ERROR_FILE));
+            let e = JSON.parse(fs.readFileSync(error_file));
             let current = e.errors;
             current.push({
               block_number: n,
@@ -68,9 +68,10 @@ async function processBlock(web3: Web3, n: number): Promise<number> {
               error: error.message || error.toString(),
             });
             // Update error file.
-            fs.writeFileSync(ERROR_FILE, JSON.stringify(current));
+            fs.writeFileSync(error_file, JSON.stringify(current));
             reject(`Failed ((${params.join(",")})): ${error.message || error.toString()}`);
           }
+          console.log("Processed transaction: " + txn);
           resolve(result);
         }
       );
@@ -78,7 +79,7 @@ async function processBlock(web3: Web3, n: number): Promise<number> {
     let response = await req;
     // We are only interested in errors. Error on processing the request.
     if (response.hasOwnProperty("error")) {
-      let e = JSON.parse(fs.readFileSync(ERROR_FILE));
+      let e = JSON.parse(fs.readFileSync(error_file));
       let current = e.errors;
       current.push({
         block_number: n,
@@ -86,7 +87,7 @@ async function processBlock(web3: Web3, n: number): Promise<number> {
         error: response.error,
       });
       // Update error file.
-      fs.writeFileSync(ERROR_FILE, JSON.stringify(current));
+      fs.writeFileSync(error_file, JSON.stringify(current));
     }
   }
   // Return the number of transactions processed in this block.
@@ -94,19 +95,44 @@ async function processBlock(web3: Web3, n: number): Promise<number> {
 }
 
 (async () => {
-  let web3 = new Web3(URL);
+
+  // Required --url argument.
+  let url;
+  if (!process.env.npm_config_url || process.env.npm_config_debug == "") {
+    console.error("Please provide an `--url` argument");
+    process.exit(1);
+  }
+  url = process.env.npm_config_url;
+
+  // Handle --debug or --trace argument. Default to --debug.
+  if (!process.env.npm_config_debug && !process.env.npm_config_trace) {
+    mode = "debug";
+    console.warn("No mode selected, running with `--debug`");
+  } else if (process.env.npm_config_debug && process.env.npm_config_trace) {
+    mode = "debug";
+    console.warn("Multiple modes not supported, running with `--debug`");
+  } else {
+    mode = (process.env.npm_config_debug == "true") ? "debug" : "trace";
+  }
+
+  let web3 = new Web3(url);
   // Check if there is connectivity.
   await web3.eth.net
     .isListening()
-    .then(() => {})
+    .then(() => { })
     .catch((e) => {
       throw Error("Url cannot be accessed. Exit.");
     });
 
+
   // Create db directory if not exists.
-  if (!fs.existsSync("db")) {
-    fs.mkdirSync("db");
+  let db_path = DB_PATH + "/" + mode;
+  if (!fs.existsSync(db_path)) {
+    fs.mkdirSync(db_path);
   }
+
+  error_file = db_path + "/error.json";
+  progress_file = db_path + "/progress.json";
 
   // Create error file if not exists.
   createErrorFile();
@@ -123,17 +149,24 @@ async function processBlock(web3: Web3, n: number): Promise<number> {
     throw Error("Outdated progress file.");
   }
 
-  let i;
-  for (i = from + 1; i <= to; i++) {
-    // Process a single block.
-    totalTxn += await processBlock(web3, i);
-    // Update progress.
-    fs.writeFileSync(
-      PROGRESS_FILE,
-      JSON.stringify({
-        lastProcessedBlock: i,
-        ethTransactionsProcessed: totalTxn,
-      })
-    );
+  if (mode == "debug") {
+    // Debug mode iterates over all unprocessed blocks and uses debug_traceTransaction to
+    // replay the whole chain.
+    let i;
+    for (i = from + 1; i <= to; i++) {
+      // Process a single block.
+      totalTxn += await processBlock(web3, i);
+      console.log("--- Processed block: " + i);
+      // Update progress.
+      fs.writeFileSync(
+        progress_file,
+        JSON.stringify({
+          lastProcessedBlock: i,
+          ethTransactionsProcessed: totalTxn,
+        })
+      );
+    }
+  } else if (mode == "trace") {
+    // TODO
   }
 })();
