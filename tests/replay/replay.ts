@@ -105,14 +105,14 @@ async function processBlock(web3: Web3, n: number): Promise<number> {
   url = process.env.npm_config_url;
 
   // Handle --debug or --trace argument. Default to --debug.
-  if (!process.env.npm_config_debug && !process.env.npm_config_trace) {
+  if (!process.env.npm_config_mode || process.env.npm_config_mode == "") {
     mode = "debug";
     console.warn("No mode selected, running with `--debug`");
   } else if (process.env.npm_config_debug && process.env.npm_config_trace) {
     mode = "debug";
     console.warn("Multiple modes not supported, running with `--debug`");
   } else {
-    mode = (process.env.npm_config_debug == "true") ? "debug" : "trace";
+    mode = process.env.npm_config_mode;
   }
 
   let web3 = new Web3(url);
@@ -168,5 +168,7 @@ async function processBlock(web3: Web3, n: number): Promise<number> {
     }
   } else if (mode == "trace") {
     // TODO
+  } else {
+    console.error("Mode is unsupported");
   }
 })();
