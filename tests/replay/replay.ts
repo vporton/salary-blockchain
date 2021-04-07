@@ -1,3 +1,21 @@
+
+/**
+ * 
+ * Description
+ * 
+ * This script aims to replay all transactions in the blockchain and capture tracing errors using
+ * our Executor Wrapper. It uses a simple progress file to track the last block processed.
+ * 
+ *  - All errors are captured under 'db/{mode}/error.json'.
+ *  - Progress is captured under 'db/{mode}/progress.json'.
+ * 
+ * To launch it use `npm run replay {Args}`.
+ * 
+ * Args:
+ *  --mode=debug|trace [Optional] [Default=debug]
+ *  --url={ETHEREUM_TRACING_ENABLED_RPC_ENDPOINT} [Required]
+ */
+
 import Web3 from "web3";
 import { JsonRpcResponse } from "web3-core-helpers";
 
@@ -93,11 +111,7 @@ async function processBlock(web3: Web3, n: number): Promise<number> {
   // Return the number of transactions processed in this block.
   return block.transactions.length;
 }
-/**
- * Args:
- *  --mode=debug|trace [Optional] [Default=debug]
- *  --url={RPC_ENDPOINT} [Required]
- */
+
 (async () => {
 
   // Required --url argument.
