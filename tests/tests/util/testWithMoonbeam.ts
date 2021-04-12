@@ -35,72 +35,11 @@ export async function startMoonbeamNode(
   // For now I'm just ignoring the param and hardcoding development below.
   specFilename: string,
   provider?: string
-): Promise<{ context: Context; runningNode: ChildProcess }> {
+): Promise<{ context: Context }> {
   let web3;
   if (!provider || provider == "http") {
     web3 = new Web3(`http://localhost:${RPC_PORT}`);
   }
-
-  const cmd = BINARY_PATH;
-  const args = [
-    `--execution=Native`, // Faster execution using native
-    `--no-telemetry`,
-    `--no-prometheus`,
-    `--dev`,
-    `--ethapi=txpool,debug,trace`,
-    `--sealing=manual`,
-    `-l${MOONBEAM_LOG}`,
-    `--port=${PORT}`,
-    `--rpc-port=${RPC_PORT}`,
-    `--ws-port=${WS_PORT}`,
-    `--tmp`,
-  ];
-  runningNode = spawn(cmd, args);
-  runningNode.on("error", (err) => {
-    if ((err as any).errno == "ENOENT") {
-      console.error(
-        `\x1b[31mMissing Moonbeam binary ` +
-          `(${BINARY_PATH}).\nPlease compile the Moonbeam project\x1b[0m`
-      );
-    } else {
-      console.error(err);
-    }
-    process.exit(1);
-  });
-
-  const binaryLogs = [];
-  await new Promise<void>((resolve) => {
-    const timer = setTimeout(() => {
-      console.error(`\x1b[31m Failed to start Moonbeam Test Node.\x1b[0m`);
-      console.error(`Command: ${cmd} ${args.join(" ")}`);
-      console.error(`Logs:`);
-      console.error(binaryLogs.map((chunk) => chunk.toString()).join("\n"));
-      process.exit(1);
-    }, SPAWNING_TIME - 2000);
-
-    const onData = async (chunk) => {
-      if (DISPLAY_LOG) {
-        console.log(chunk.toString());
-      }
-      binaryLogs.push(chunk);
-      if (chunk.toString().match(/Development Service Ready/)) {
-        if (!provider || provider == "http") {
-          // This is needed as the EVM runtime needs to warmup with a first call
-          await web3.eth.getChainId();
-        }
-
-        clearTimeout(timer);
-        if (!DISPLAY_LOG) {
-          runningNode.stderr.off("data", onData);
-          runningNode.stdout.off("data", onData);
-        }
-        // console.log(`\x1b[31m Starting RPC\x1b[0m`);
-        resolve();
-      }
-    };
-    runningNode.stderr.on("data", onData);
-    runningNode.stdout.on("data", onData);
-  });
 
   const wsProvider = new WsProvider(`ws://localhost:${WS_PORT}`);
   const polkadotApi = await ApiPromise.create({
@@ -112,18 +51,8 @@ export async function startMoonbeamNode(
     web3 = new Web3(`ws://localhost:${WS_PORT}`);
   }
 
-  return { context: { web3, polkadotApi, wsProvider }, runningNode };
+  return { context: { web3, polkadotApi, wsProvider } };
 }
-
-// Kill all processes when exiting.
-process.on("exit", function () {
-  runningNode.kill();
-});
-
-// Handle ctrl+c to trigger `exit`.
-process.on("SIGINT", function () {
-  process.exit(2);
-});
 
 export function describeWithMoonbeam(
   title: string,
@@ -133,7 +62,6 @@ export function describeWithMoonbeam(
 ) {
   describe(title, () => {
     let context: Context = { web3: null, wsProvider: null, polkadotApi: null };
-    let binary: ChildProcess;
 
     // Making sure the Moonbeam node has started
     before("Starting Moonbeam Test Node", async function () {
@@ -144,14 +72,6 @@ export function describeWithMoonbeam(
       context.web3 = init.context.web3;
       context.wsProvider = init.context.wsProvider;
       context.polkadotApi = init.context.polkadotApi;
-      binary = init.runningNode;
-    });
-
-    after(async function () {
-      // console.log(`\x1b[31m Killing RPC\x1b[0m`);
-      context.wsProvider.disconnect();
-      binary.kill();
-      binary = null;
     });
 
     cb(context);
