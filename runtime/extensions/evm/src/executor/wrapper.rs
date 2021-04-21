@@ -325,7 +325,7 @@ impl<'config, S: StackStateT<'config>> TraceExecutorWrapper<'config, S> {
 
 		// Compute used gas.
 		let gas_at_end = self.inner.gas();
-		let gas_used = gas_at_start - gas_at_end;
+		let gas_used = self.inner.state().metadata().gasometer().total_used_gas();
 
 		// If `exit_reason` is `Suicided`, we need to add the suicide subcall to the traces.
 		if exit_reason == ExitReason::Succeed(ExitSucceed::Suicided) {
