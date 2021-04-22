@@ -29,7 +29,7 @@ jsonrpc-core = "15.0.0"
 jsonrpc-pubsub = "15.0.0"
 sha3 = { version = "0.8", default-features = false }
 tiny-hderive = { version = "0.3.0", default-features = false }
-tiny-bip39 = {version = "0.6", default-features = false}
+tiny-bip39 = { version = "0.6", default-features = false }
 
 # Moonbeam dependencies
 moonbeam-runtime = { path = "../runtime" }
@@ -38,7 +38,7 @@ moonbeam-rpc-primitives-txpool = { path = "../primitives/rpc/txpool" }
 moonbeam-rpc-debug = { path = "../client/rpc/debug" }
 moonbeam-rpc-primitives-debug = { path = "../primitives/rpc/debug" }
 moonbeam-rpc-trace = { path = "../client/rpc/trace" }
-author-inherent = { path = "../pallets/author-inherent"}
+author-inherent = { path = "../pallets/author-inherent" }
 
 # Substrate dependencies
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
@@ -103,7 +103,7 @@ polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1" }
 
 # benchmarking dependencies
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", optional = true }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
 pallet-xcm = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", optional = true }
 xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", optional = true }
@@ -136,6 +136,7 @@ default = []
 test-spec = []
 
 runtime-benchmarks = [
+	"frame-benchmarking",
 	"moonbeam-runtime/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",

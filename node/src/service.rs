@@ -56,6 +56,7 @@ use std::{
 	time::Duration,
 };
 
+#[cfg(feature = "runtime-benchmarks")]
 // Our native executor instance.
 native_executor_instance!(
 	pub Executor,
@@ -63,6 +64,15 @@ native_executor_instance!(
 	moonbeam_runtime::native_version,
 	frame_benchmarking::benchmarking::HostFunctions,
 );
+
+#[cfg(not(feature = "runtime-benchmarks"))]
+// Our native executor instance.
+native_executor_instance!(
+	pub Executor,
+	moonbeam_runtime::api::dispatch,
+	moonbeam_runtime::native_version,
+);
+
 use sc_telemetry::{Telemetry, TelemetryWorker, TelemetryWorkerHandle};
 
 type FullClient = TFullClient<Block, RuntimeApi, Executor>;
