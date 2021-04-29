@@ -21,7 +21,7 @@ use std::sync::Arc;
 
 use crate::cli::EthApi as EthApiCmd;
 use ethereum::EthereumStorageSchema;
-use fc_rpc::{StorageOverride, SchemaV1Override, OverrideHandle, RuntimeApiStorageOverride};
+use fc_rpc::{OverrideHandle, RuntimeApiStorageOverride, SchemaV1Override, StorageOverride};
 use fc_rpc_core::types::{FilterPool, PendingTransactions};
 use jsonrpc_pubsub::manager::SubscriptionManager;
 use moonbeam_rpc_trace::TraceFilterCacheRequester;
@@ -140,7 +140,8 @@ where
 	let mut overrides_map = BTreeMap::new();
 	overrides_map.insert(
 		EthereumStorageSchema::V1,
-		Box::new(SchemaV1Override::new(client.clone())) as Box<dyn StorageOverride<_> + Send + Sync>
+		Box::new(SchemaV1Override::new(client.clone()))
+			as Box<dyn StorageOverride<_> + Send + Sync>,
 	);
 
 	let overrides = Arc::new(OverrideHandle {

@@ -73,15 +73,13 @@ where
 			None => return Err(internal_err("Transaction hash not found".to_string())),
 		};
 
-		let reference_id = match frontier_backend_client::load_hash::<B>(
-			self.frontier_backend.as_ref(),
-			hash,
-		)
-		.map_err(|err| internal_err(format!("{:?}", err)))?
-		{
-			Some(hash) => hash,
-			_ => return Err(internal_err("Block hash not found".to_string())),
-		};
+		let reference_id =
+			match frontier_backend_client::load_hash::<B>(self.frontier_backend.as_ref(), hash)
+				.map_err(|err| internal_err(format!("{:?}", err)))?
+			{
+				Some(hash) => hash,
+				_ => return Err(internal_err("Block hash not found".to_string())),
+			};
 
 		// Get ApiRef. This handle allow to keep changes between txs in an internal buffer.
 		let api = self.client.runtime_api();
