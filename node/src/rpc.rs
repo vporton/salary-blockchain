@@ -21,7 +21,7 @@ use std::sync::Arc;
 
 use crate::cli::EthApi as EthApiCmd;
 use ethereum::EthereumStorageSchema;
-use fc_rpc::{SchemaV1Override, StorageOverride};
+use fc_rpc::{StorageOverride, SchemaV1Override, OverrideHandle, RuntimeApiStorageOverride};
 use fc_rpc_core::types::{FilterPool, PendingTransactions};
 use jsonrpc_pubsub::manager::SubscriptionManager;
 use moonbeam_rpc_trace::TraceFilterCacheRequester;
@@ -71,6 +71,8 @@ pub struct FullDeps<C, P, A: ChainApi, BE> {
 	pub command_sink: Option<futures::channel::mpsc::Sender<EngineCommand<Hash>>>,
 	/// Trace filter cache server requester.
 	pub trace_filter_requester: Option<TraceFilterCacheRequester>,
+	/// Maximum number of logs in a query.
+	pub max_past_logs: u32,
 }
 
 /// Instantiate all Full RPC extensions.
@@ -120,6 +122,7 @@ where
 		trace_filter_requester,
 		frontier_backend,
 		backend,
+		max_past_logs,
 	} = deps;
 
 	io.extend_with(SystemApi::to_delegate(FullSystem::new(
@@ -134,12 +137,16 @@ where
 	// TODO: are we supporting signing?
 	let signers = Vec::new();
 
-	let mut overrides = BTreeMap::new();
-	overrides.insert(
+	let mut overrides_map = BTreeMap::new();
+	overrides_map.insert(
 		EthereumStorageSchema::V1,
-		Box::new(SchemaV1Override::new(client.clone()))
-			as Box<dyn StorageOverride<_> + Send + Sync>,
+		Box::new(SchemaV1Override::new(client.clone())) as Box<dyn StorageOverride<_> + Send + Sync>
 	);
+
+	let overrides = Arc::new(OverrideHandle {
+		schemas: overrides_map,
+		fallback: Box::new(RuntimeApiStorageOverride::new(client.clone())),
+	});
 
 	io.extend_with(EthApiServer::to_delegate(EthApi::new(
 		client.clone(),
@@ -149,9 +156,10 @@ where
 		network.clone(),
 		pending_transactions,
 		signers,
-		overrides,
+		overrides.clone(),
 		frontier_backend.clone(),
 		is_authority,
+		max_past_logs,
 	)));
 
 	if let Some(filter_pool) = filter_pool {
@@ -159,6 +167,8 @@ where
 			client.clone(),
 			filter_pool.clone(),
 			500 as usize, // max stored filters
+			overrides,
+			max_past_logs,
 		)));
 	}
 
