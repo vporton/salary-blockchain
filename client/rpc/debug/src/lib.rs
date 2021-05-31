@@ -236,11 +236,20 @@ where
 		if let Some(block) = reference_block {
 			let transactions = block.transactions;
 			if let Some(transaction) = transactions.get(index) {
-				return client
-					.runtime_api()
-					.trace_transaction(&parent_block_id, ext, &transaction, trace_type)
-					.map_err(|e| internal_err(format!("Runtime api access error: {:?}", e)))?
-					.map_err(|e| internal_err(format!("DispatchError: {:?}", e)));
+				// TODO we create a new instance of a Listener implementor and wrap
+				// the runtime call so it can use the environmental mutable reference.
+				return Ok(single::RawProxy::new()
+					.proxy(|| {
+						return client
+							.runtime_api()
+							.trace_transaction(&parent_block_id, ext, &transaction, trace_type)
+							.map_err(|e| {
+								internal_err(format!("Runtime api access error: {:?}", e))
+							})?
+							.map_err(|e| internal_err(format!("DispatchError: {:?}", e)));
+					})
+					.0
+					.into_tx_trace());
 			}
 		}
 		return Err(internal_err("Runtime block call failed".to_string()));

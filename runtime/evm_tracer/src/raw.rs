@@ -16,9 +16,9 @@
 
 use crate::util::*;
 
-use ethereum_types::{H160, H256};
+use ethereum_types::{H160, H256, U256};
 use evm::{Capture, ExitReason};
-use moonbeam_rpc_primitives_debug::single::{RawStepLog, TransactionTrace};
+use moonbeam_rpc_primitives_debug::single::{Event as RawEvent, RawStepLog, TransactionTrace};
 use sp_std::{collections::btree_map::BTreeMap, vec, vec::Vec};
 
 /// Listen to EVM events to provide the intermediate machine state between opcode executions
@@ -117,10 +117,20 @@ impl RawTracer {
 			f()
 		};
 
-		(Rc::try_unwrap(wrapped).unwrap().into_inner(), result)
+		let inner = Rc::try_unwrap(wrapped).unwrap().into_inner();
+
+		let gas: U256 = U256::from(inner.final_gas.clone());
+		let return_value = inner.return_value.clone();
+
+		RawEvent::Gas(gas).emit();
+		RawEvent::ReturnValue(return_value).emit();
+
+		// TODO here we will just return the EVM result
+		(inner, result)
 	}
 
 	pub fn into_tx_trace(self) -> TransactionTrace {
+		// TODO this will not be required using environmental
 		TransactionTrace::Raw {
 			step_logs: self.step_logs,
 			gas: self.final_gas.into(),
@@ -239,7 +249,9 @@ impl RuntimeListener for RawTracer {
 							Some(context.storage_cache.clone())
 						};
 
-						self.step_logs.push(RawStepLog {
+						// TODO we don't store the step log result anymore. Using the environmental
+						// global reference.
+						RawEvent::Step(RawStepLog {
 							depth: depth.into(),
 							gas: gas.into(),
 							gas_cost: gas_cost.into(),
@@ -248,7 +260,8 @@ impl RuntimeListener for RawTracer {
 							pc: position.into(),
 							stack,
 							storage,
-						});
+						})
+						.emit();
 					}
 				}
 
