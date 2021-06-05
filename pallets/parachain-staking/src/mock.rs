@@ -108,7 +108,7 @@ parameter_types! {
 }
 impl Config for Test {
 	type Event = Event;
-	type Currency = Balances;
+	//type Currency = Balances;
 	type MinBlocksPerRound = MinBlocksPerRound;
 	type DefaultBlocksPerRound = DefaultBlocksPerRound;
 	type BondDuration = BondDuration;

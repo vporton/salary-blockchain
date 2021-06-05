@@ -43,28 +43,25 @@ fn geneses() {
 		.execute_with(|| {
 			assert!(System::events().is_empty());
 			// collators
-			assert_eq!(Balances::reserved_balance(&1), 500);
-			assert_eq!(Balances::free_balance(&1), 500);
+			assert_eq!(Balances::free_balance(&1), 1000);
+			assert_eq!(Balances::usable_balance(&1), 500);
 			assert!(Stake::is_candidate(&1));
-			assert_eq!(Balances::reserved_balance(&2), 200);
-			assert_eq!(Balances::free_balance(&2), 100);
+			assert_eq!(Balances::free_balance(&2), 300);
+			assert_eq!(Balances::usable_balance(&2), 100);
 			assert!(Stake::is_candidate(&2));
 			// nominators
 			for x in 3..7 {
 				assert!(Stake::is_nominator(&x));
-				assert_eq!(Balances::free_balance(&x), 0);
-				assert_eq!(Balances::reserved_balance(&x), 100);
+				assert_eq!(Balances::free_balance(&x), 100);
+				assert_eq!(Balances::usable_balance(&x), 0);
 			}
 			// uninvolved
 			for x in 7..10 {
 				assert!(!Stake::is_nominator(&x));
 			}
 			assert_eq!(Balances::free_balance(&7), 100);
-			assert_eq!(Balances::reserved_balance(&7), 0);
 			assert_eq!(Balances::free_balance(&8), 9);
-			assert_eq!(Balances::reserved_balance(&8), 0);
 			assert_eq!(Balances::free_balance(&9), 4);
-			assert_eq!(Balances::reserved_balance(&9), 0);
 		});
 	ExtBuilder::default()
 		.with_balances(vec![
@@ -93,17 +90,17 @@ fn geneses() {
 			// collators
 			for x in 1..5 {
 				assert!(Stake::is_candidate(&x));
-				assert_eq!(Balances::free_balance(&x), 80);
-				assert_eq!(Balances::reserved_balance(&x), 20);
+				assert_eq!(Balances::free_balance(&x), 100);
+				assert_eq!(Balances::usable_balance(&x), 80);
 			}
 			assert!(Stake::is_candidate(&5));
-			assert_eq!(Balances::free_balance(&5), 90);
-			assert_eq!(Balances::reserved_balance(&5), 10);
+			assert_eq!(Balances::free_balance(&5), 100);
+			assert_eq!(Balances::usable_balance(&5), 90);
 			// nominators
 			for x in 6..11 {
 				assert!(Stake::is_nominator(&x));
-				assert_eq!(Balances::free_balance(&x), 90);
-				assert_eq!(Balances::reserved_balance(&x), 10);
+				assert_eq!(Balances::free_balance(&5), 100);
+				assert_eq!(Balances::usable_balance(&x), 90);
 			}
 		});
 }
@@ -210,12 +207,7 @@ fn join_collator_candidates() {
 			);
 			assert_noop!(
 				Stake::join_candidates(Origin::signed(8), 10u128,),
-				DispatchError::Module {
-					index: 1,
-
-					error: 2,
-					message: Some("InsufficientBalance")
-				}
+				Error::<Test>::InsufficientLockableBalance
 			);
 			assert!(System::events().is_empty());
 			assert_ok!(Stake::join_candidates(Origin::signed(7), 10u128,));
@@ -687,12 +679,7 @@ fn multiple_nominations() {
 			assert_ok!(Stake::nominate(Origin::signed(7), 2, 80));
 			assert_noop!(
 				Stake::nominate(Origin::signed(7), 3, 11),
-				DispatchError::Module {
-					index: 1,
-
-					error: 2,
-					message: Some("InsufficientBalance")
-				},
+				Error::<Test>::InsufficientLockableBalance,
 			);
 			assert_noop!(
 				Stake::nominate(Origin::signed(10), 2, 10),
@@ -743,8 +730,6 @@ fn multiple_nominations() {
 				Stake::nominator_state(6).unwrap().nominations.0.len(),
 				4usize
 			);
-			assert_eq!(Balances::reserved_balance(&6), 40);
-			assert_eq!(Balances::reserved_balance(&7), 90);
 			assert_eq!(Balances::free_balance(&6), 60);
 			assert_eq!(Balances::free_balance(&7), 10);
 			roll_to(40);
@@ -758,8 +743,6 @@ fn multiple_nominations() {
 				Stake::nominator_state(6).unwrap().nominations.0.len(),
 				3usize
 			);
-			assert_eq!(Balances::reserved_balance(&6), 30);
-			assert_eq!(Balances::reserved_balance(&7), 10);
 			assert_eq!(Balances::free_balance(&6), 70);
 			assert_eq!(Balances::free_balance(&7), 90);
 		});
@@ -798,12 +781,7 @@ fn collators_bond() {
 			assert_ok!(Stake::candidate_bond_more(Origin::signed(1), 50));
 			assert_noop!(
 				Stake::candidate_bond_more(Origin::signed(1), 40),
-				DispatchError::Module {
-					index: 1,
-
-					error: 2,
-					message: Some("InsufficientBalance")
-				}
+				Error::<Test>::InsufficientLockableBalance,
 			);
 			assert_ok!(Stake::leave_candidates(Origin::signed(1)));
 			assert_noop!(
@@ -895,19 +873,12 @@ fn nominators_bond() {
 			);
 			assert_noop!(
 				Stake::nominator_bond_more(Origin::signed(6), 1, 81),
-				DispatchError::Module {
-					index: 1,
-
-					error: 2,
-					message: Some("InsufficientBalance")
-				}
+				Error::<Test>::InsufficientLockableBalance,
 			);
 			roll_to(9);
-			assert_eq!(Balances::reserved_balance(&6), 20);
 			assert_ok!(Stake::leave_candidates(Origin::signed(1)));
 			roll_to(31);
 			assert!(!Stake::is_nominator(&6));
-			assert_eq!(Balances::reserved_balance(&6), 0);
 			assert_eq!(Balances::free_balance(&6), 100);
 		});
 }
