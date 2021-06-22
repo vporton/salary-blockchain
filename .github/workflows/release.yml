@@ -10,10 +10,15 @@ name: Release
 on: ["push"]
 
 jobs:
-  ####### Check files and formatting #######
-
   check-yarn:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    env:
+      CARGO_SCCACHE_VERSION: 0.2.14-alpha.0-parity
+      RUSTFLAGS: "-C opt-level=3"
+      # MOONBEAM_LOG: info
+      # DEBUG: "test*"
+    outputs:
+      RUSTC: ${{ steps.get-rust-versions.outputs.rustc }}
     steps:
       - name: check yarn
         run: |
